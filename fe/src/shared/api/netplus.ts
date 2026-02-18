@@ -17,31 +17,37 @@ const titles: Title[] = [
     id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     name: "Demo Thriller A",
     description: "도시 연쇄 사건 속에서 엇갈리는 신뢰와 의심",
+    thumbnail_url: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=400&h=600&fit=crop",
   },
   {
     id: "4fa85f64-5717-4562-b3fc-2c963f66afa7",
     name: "미스터리 연대기",
     description: "과거와 현재를 오가는 추리 스릴러",
+    thumbnail_url: "https://images.unsplash.com/photo-1519682337058-a94d519337bc?w=400&h=600&fit=crop",
   },
   {
     id: "5fa85f64-5717-4562-b3fc-2c963f66afa8",
     name: "도시의 그림자",
     description: "복잡한 인간관계와 배신의 드라마",
+    thumbnail_url: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&h=600&fit=crop",
   },
   {
     id: "6fa85f64-5717-4562-b3fc-2c963f66afa9",
     name: "추적자들",
     description: "형사와 범인의 치열한 두뇌 게임",
+    thumbnail_url: "https://images.unsplash.com/photo-1574269909862-7e1d70bb8078?w=400&h=600&fit=crop",
   },
   {
     id: "7fa85f64-5717-4562-b3fc-2c963f66afaa",
     name: "잃어버린 기억",
     description: "기억을 찾아가는 미스터리 로맨스",
+    thumbnail_url: "https://images.unsplash.com/photo-1485846234645-a62644f84728?w=400&h=600&fit=crop",
   },
   {
     id: "8fa85f64-5717-4562-b3fc-2c963f66afab",
     name: "비밀의 문",
     description: "가족의 비밀을 파헤치는 서스펜스",
+    thumbnail_url: "https://images.unsplash.com/photo-1535016120720-40c646be5580?w=400&h=600&fit=crop",
   },
 ];
 
