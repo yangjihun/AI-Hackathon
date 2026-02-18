@@ -1,32 +1,42 @@
+﻿import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getCurrentUser, logout, isAuthenticated } from "../../../shared/lib/auth";
+
+import {
+  getCurrentUser,
+  isAuthenticated,
+  logout,
+  refreshMe,
+  subscribeAuthChanged,
+  type User,
+} from "../../../shared/lib/auth";
 import { getCurrentPlan, setCurrentPlan as savePlan, PLANS, formatPrice, type PlanType } from "../../../shared/lib/subscription";
 import { PlanModal } from "./PlanModal";
 import { useState, useEffect } from "react";
 
 export function Header() {
-  const [user, setUser] = useState(getCurrentUser());
+  const [user, setUser] = useState<User | null>(getCurrentUser());
   const [showMenu, setShowMenu] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<PlanType>(getCurrentPlan());
   const navigate = useNavigate();
 
   useEffect(() => {
-    // 인증 상태 변경 감지
-    const checkAuth = () => {
-      setUser(getCurrentUser());
-      setCurrentPlan(getCurrentPlan());
-    };
-    window.addEventListener("storage", checkAuth);
-    checkAuth();
-    return () => window.removeEventListener("storage", checkAuth);
+    const sync = () => setUser(getCurrentUser());
+    const unsubscribe = subscribeAuthChanged(sync);
+
+    if (isAuthenticated() && !getCurrentUser()) {
+      void refreshMe().finally(sync);
+    } else {
+      sync();
+    }
+
+    return unsubscribe;
   }, []);
 
   const handleLogout = () => {
     logout();
-    setUser(null);
     setShowMenu(false);
-    navigate("/login");
+    navigate("/login", { replace: true });
   };
 
   const handlePlanChange = (planId: PlanType) => {
@@ -59,10 +69,10 @@ export function Header() {
           <div className="header-user-menu">
             <button
               className="header-profile-btn"
-              onClick={() => setShowMenu(!showMenu)}
-              aria-label="프로필 메뉴"
+              onClick={() => setShowMenu((prev) => !prev)}
+              aria-label="Profile menu"
             >
-              <span className="header-profile-icon">👤</span>
+              <span className="header-profile-icon">U</span>
               <span className="header-profile-name">{user.name}</span>
             </button>
             {showMenu && (
@@ -74,19 +84,16 @@ export function Header() {
                   className="header-dropdown-item header-dropdown-button"
                   onClick={handleLogout}
                 >
-                  로그아웃
+                  Logout
                 </button>
               </div>
             )}
           </div>
         ) : (
           <Link to="/login" className="header-login-btn">
-            로그인
+            Login
           </Link>
         )}
-        <button className="header-search-btn" aria-label="검색">
-          🔍
-        </button>
       </div>
 
       {showPlanModal && (
@@ -99,4 +106,3 @@ export function Header() {
     </header>
   );
 }
-

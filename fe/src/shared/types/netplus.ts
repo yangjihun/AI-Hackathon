@@ -160,3 +160,16 @@ export type CharacterCardResponse = {
   warnings: Array<{ code: string; message: string }>;
 };
 
+export type AuthUser = {
+  id: UUID;
+  name: string;
+  email: string;
+  created_at?: string | null;
+};
+
+export type AuthResponse = {
+  access_token: string;
+  token_type: string;
+  user: AuthUser;
+};
+
