@@ -73,6 +73,7 @@ class SubtitleLine(Base):
     start_ms: Mapped[int] = mapped_column(Integer, nullable=False)
     end_ms: Mapped[int] = mapped_column(Integer, nullable=False)
     speaker_text: Mapped[str | None] = mapped_column(Text)
+    speaker_character_id: Mapped[str | None] = mapped_column(String(36), ForeignKey('characters.id', ondelete='SET NULL'))
     text: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 

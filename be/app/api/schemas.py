@@ -294,3 +294,98 @@ class AuthResponse(BaseModel):
     access_token: str
     token_type: str = 'bearer'
     user: AuthUser
+
+
+class TitleCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    description: str | None = None
+
+
+class EpisodeCreateRequest(BaseModel):
+    title_id: str
+    season: int = Field(ge=1)
+    episode_number: int = Field(ge=1)
+    name: str | None = None
+    duration_ms: int = Field(ge=1)
+
+
+class SubtitleLineCreate(BaseModel):
+    episode_id: str
+    start_ms: int = Field(ge=0)
+    end_ms: int = Field(ge=0)
+    text: str = Field(min_length=1)
+    speaker_text: str | None = None
+    speaker_character_id: str | None = None
+
+    @field_validator('end_ms')
+    @classmethod
+    def validate_time_range(cls, value: int, info) -> int:
+        start_ms = info.data.get('start_ms')
+        if start_ms is not None and value < int(start_ms):
+            raise ValueError('end_ms must be >= start_ms')
+        return value
+
+
+class SubtitleLineBulkRequest(BaseModel):
+    lines: list[SubtitleLineCreate] = Field(min_length=1)
+
+
+class IngestSubtitleLinesResponse(BaseModel):
+    inserted_count: int
+    queued_embedding_jobs: int
+
+
+class ChatRole(str, Enum):
+    USER = 'user'
+    ASSISTANT = 'assistant'
+    SYSTEM = 'system'
+
+
+class ChatSessionCreateRequest(BaseModel):
+    title_id: str
+    episode_id: str
+    user_id: str
+    current_time_ms: int = Field(ge=0)
+    meta: dict = Field(default_factory=dict)
+
+
+class ChatSessionOut(BaseModel):
+    id: str
+    title_id: str
+    episode_id: str
+    user_id: str
+    current_time_ms: int
+    meta: dict
+    created_at: str | None = None
+
+
+class ChatSessionListResponse(BaseModel):
+    items: list[ChatSessionOut]
+
+
+class ChatMessageCreateRequest(BaseModel):
+    role: ChatRole
+    content: str = Field(min_length=1)
+    current_time_ms: int = Field(ge=0)
+    model: str | None = None
+    prompt_tokens: int | None = Field(default=None, ge=0)
+    completion_tokens: int | None = Field(default=None, ge=0)
+    related_relation_id: str | None = None
+
+
+class ChatMessageOut(BaseModel):
+    id: str
+    session_id: str
+    role: ChatRole
+    content: str
+    current_time_ms: int
+    model: str | None = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    related_relation_id: str | None = None
+    created_at: str | None = None
+
+
+class ChatMessageListResponse(BaseModel):
+    session_id: str
+    items: list[ChatMessageOut]
