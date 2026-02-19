@@ -1,8 +1,12 @@
-﻿from collections.abc import Generator
+from collections.abc import Generator
 
+from fastapi import Depends, Header
 from sqlalchemy.orm import Session
 
+from app.api.errors import unauthorized
+from app.api.schemas import AuthUser
 from app.db.session import SessionLocal
+from app.services.auth_service import resolve_user_from_bearer
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -11,3 +15,13 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+
+
+def get_current_user(
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> AuthUser:
+    user = resolve_user_from_bearer(db, authorization)
+    if user is None:
+        raise unauthorized('Invalid or expired token.')
+    return user

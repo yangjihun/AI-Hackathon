@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import type { UUID, QAResponse } from "../../../shared/types/netplus";
+import type { UUID, QAResponse, ResponseStyle } from "../../../shared/types/netplus";
 import { askQuestion } from "../../../shared/api/netplus";
 import { EvidenceQuote } from "../../../shared/ui/EvidenceQuote";
 import { Button } from "../../../shared/ui/Button";
@@ -8,6 +8,14 @@ import {
   getAiUsageStatus,
   type AiUsageStatus,
 } from "../../../shared/lib/subscription";
+
+const CHAT_STYLE_STORAGE_KEY = "netplus_chat_response_style";
+
+const STYLE_LABELS: Record<ResponseStyle, string> = {
+  FRIEND: "Friend",
+  ASSISTANT: "Assistant",
+  CRITIC: "Film Critic",
+};
 
 interface CompanionChatPanelProps {
   titleId: UUID;
@@ -32,6 +40,20 @@ export function CompanionChatPanel({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [aiUsage, setAiUsage] = useState<AiUsageStatus>(() => getAiUsageStatus());
+  const [responseStyle, setResponseStyle] = useState<ResponseStyle>(() => {
+    if (typeof window === "undefined") return "FRIEND";
+    const saved = localStorage.getItem(CHAT_STYLE_STORAGE_KEY);
+    if (saved === "FRIEND" || saved === "ASSISTANT" || saved === "CRITIC") return saved;
+    return "FRIEND";
+  });
+
+  const handleStyleChange = (value: string) => {
+    if (value !== "FRIEND" && value !== "ASSISTANT" && value !== "CRITIC") return;
+    setResponseStyle(value);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(CHAT_STYLE_STORAGE_KEY, value);
+    }
+  };
 
   const askWithUsageGuard = async (question: string) => {
     const usage = consumeAiUsage();
@@ -56,6 +78,7 @@ export function CompanionChatPanel({
         episode_id: episodeId,
         current_time_ms: currentTimeMs,
         question,
+        response_style: responseStyle,
       });
 
       const assistantMessage: ChatMessage = {
@@ -104,6 +127,22 @@ export function CompanionChatPanel({
         </div>
       )}
       {error && <div className="ai-trial-error">{error}</div>}
+
+      <div className="chat-style-picker">
+        <label htmlFor="chat-style-select">Style</label>
+        <select
+          id="chat-style-select"
+          value={responseStyle}
+          onChange={(e) => handleStyleChange(e.target.value)}
+          disabled={loading}
+        >
+          {(["FRIEND", "ASSISTANT", "CRITIC"] as ResponseStyle[]).map((style) => (
+            <option key={style} value={style}>
+              {STYLE_LABELS[style]}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="preset-buttons">
         <Button variant="ghost" size="sm" onClick={() => handlePreset("recap")}>

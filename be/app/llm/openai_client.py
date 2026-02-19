@@ -13,6 +13,11 @@ try:
 except Exception:  # pragma: no cover - optional dependency at runtime
     OpenAI = None  # type: ignore[assignment]
 
+try:
+    from langsmith.wrappers import wrap_openai
+except Exception:  # pragma: no cover - optional dependency at runtime
+    wrap_openai = None  # type: ignore[assignment]
+
 
 class OpenAIClient:
     def __init__(self) -> None:
@@ -21,7 +26,8 @@ class OpenAIClient:
         self.model = settings.openai_model
         self._client = None
         if self._enabled and OpenAI is not None:
-            self._client = OpenAI(api_key=settings.openai_api_key)
+            client = OpenAI(api_key=settings.openai_api_key)
+            self._client = wrap_openai(client) if wrap_openai is not None else client
 
     @property
     def enabled(self) -> bool:

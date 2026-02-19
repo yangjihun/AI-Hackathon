@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_current_user, get_db
 from app.api.errors import validation_error
 from app.api.schemas import (
     Episode,
@@ -15,6 +15,7 @@ from app.api.schemas import (
     SubtitleLineBulkRequest,
     Title,
     TitleCreateRequest,
+    AuthUser,
 )
 from app.db.models import Episode as EpisodeModel
 from app.db.models import SubtitleLine, Title as TitleModel
@@ -27,7 +28,11 @@ def _now() -> datetime:
 
 
 @router.post('/titles', response_model=Title, status_code=status.HTTP_201_CREATED)
-def ingest_title(payload: TitleCreateRequest, db: Session = Depends(get_db)) -> Title:
+def ingest_title(
+    payload: TitleCreateRequest,
+    db: Session = Depends(get_db),
+    _: AuthUser = Depends(get_current_user),
+) -> Title:
     row = TitleModel(name=payload.name.strip(), description=payload.description, created_at=_now())
     db.add(row)
     db.commit()
@@ -41,7 +46,11 @@ def ingest_title(payload: TitleCreateRequest, db: Session = Depends(get_db)) -> 
 
 
 @router.post('/episodes', response_model=Episode, status_code=status.HTTP_201_CREATED)
-def ingest_episode(payload: EpisodeCreateRequest, db: Session = Depends(get_db)) -> Episode:
+def ingest_episode(
+    payload: EpisodeCreateRequest,
+    db: Session = Depends(get_db),
+    _: AuthUser = Depends(get_current_user),
+) -> Episode:
     title = db.scalar(select(TitleModel).where(TitleModel.id == payload.title_id))
     if title is None:
         raise validation_error('Invalid request.', {'field': 'title_id', 'reason': 'Title not found'})
@@ -71,6 +80,7 @@ def ingest_episode(payload: EpisodeCreateRequest, db: Session = Depends(get_db))
 def ingest_subtitle_lines_bulk(
     payload: SubtitleLineBulkRequest,
     db: Session = Depends(get_db),
+    _: AuthUser = Depends(get_current_user),
 ) -> IngestSubtitleLinesResponse:
     episode_ids = sorted({line.episode_id for line in payload.lines})
     existing_episodes = set(
