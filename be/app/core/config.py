@@ -15,12 +15,17 @@ class Settings(BaseSettings):
     openai_api_key: str | None = Field(default=None)
     openai_model: str = Field(default='gpt-4o-mini')
     use_openai: bool = Field(default=False)
+    cors_allowed_origins: str = Field(default='http://localhost:5173,http://localhost:3000')
 
     chunk_size_lines: int = Field(default=6)
     retrieval_top_k: int = Field(default=8)
 
     auth_jwt_secret: str = Field(default='change-me-in-env')
     auth_jwt_exp_minutes: int = Field(default=60 * 24 * 7)
+
+    @property
+    def is_development(self) -> bool:
+        return self.environment.lower() in {'development', 'dev', 'local'}
 
     @model_validator(mode='after')
     def validate_security_settings(self):
