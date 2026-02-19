@@ -19,6 +19,14 @@ from app.rag.evidence_select import build_evidences_from_lines
 from app.rag.retrieval import resolve_lines_from_chunks, retrieve_chunks
 from app.rag.validator import enforce_degrade_if_needed, sanitize_evidences
 
+try:
+    from langsmith import traceable
+except Exception:  # pragma: no cover - optional dependency at runtime
+    def traceable(*args, **kwargs):  # type: ignore[no-redef]
+        def _decorator(func):
+            return func
+        return _decorator
+
 
 def _to_confidence(value, default: float = 0.3) -> float:
     try:
@@ -104,6 +112,7 @@ def _find_related_relation_id(db, req: QARequest) -> str | None:
     return reverse.id if reverse else None
 
 
+@traceable(name='qa_pipeline', run_type='chain')
 def ask_question(db, req: QARequest) -> QAResponse:
     warnings: list[WarningItem] = []
 

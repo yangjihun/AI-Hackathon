@@ -14,6 +14,14 @@ from app.rag.retrieval import resolve_lines_from_chunks, retrieve_chunks
 from app.rag.validator import sanitize_evidences
 from app.utils.text import summarize_lines
 
+try:
+    from langsmith import traceable
+except Exception:  # pragma: no cover - optional dependency at runtime
+    def traceable(*args, **kwargs):  # type: ignore[no-redef]
+        def _decorator(func):
+            return func
+        return _decorator
+
 
 def _language_instruction(language: str | None) -> str:
     if (language or '').lower().startswith('ko'):
@@ -23,6 +31,7 @@ def _language_instruction(language: str | None) -> str:
     return 'Korean'
 
 
+@traceable(name='recap_pipeline', run_type='chain')
 def build_recap(db, req: RecapRequest) -> RecapResponse:
     warnings: list[WarningItem] = []
 
