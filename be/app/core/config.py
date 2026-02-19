@@ -1,6 +1,6 @@
 ﻿from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,6 +21,15 @@ class Settings(BaseSettings):
 
     auth_jwt_secret: str = Field(default='change-me-in-env')
     auth_jwt_exp_minutes: int = Field(default=60 * 24 * 7)
+
+    @model_validator(mode='after')
+    def validate_security_settings(self):
+        # Keep tests lightweight while blocking unsafe defaults for real runs.
+        if self.environment.lower() == 'test':
+            return self
+        if not self.auth_jwt_secret or self.auth_jwt_secret == 'change-me-in-env':
+            raise ValueError('AUTH_JWT_SECRET must be set to a strong value.')
+        return self
 
 
 @lru_cache(maxsize=1)

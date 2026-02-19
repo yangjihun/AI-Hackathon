@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_current_user, get_db
 from app.api.errors import not_found, validation_error
 from app.api.schemas import (
     ChatMessageCreateRequest,
@@ -13,6 +13,7 @@ from app.api.schemas import (
     ChatSessionCreateRequest,
     ChatSessionListResponse,
     ChatSessionOut,
+    AuthUser,
 )
 from app.db.models import ChatMessage, ChatSession, Episode, Title, User
 
@@ -47,7 +48,11 @@ def _serialize_message(message: ChatMessage) -> ChatMessageOut:
 
 
 @router.post('/sessions', response_model=ChatSessionOut, status_code=status.HTTP_201_CREATED)
-def create_chat_session(payload: ChatSessionCreateRequest, db: Session = Depends(get_db)) -> ChatSessionOut:
+def create_chat_session(
+    payload: ChatSessionCreateRequest,
+    db: Session = Depends(get_db),
+    _: AuthUser = Depends(get_current_user),
+) -> ChatSessionOut:
     title = db.scalar(select(Title).where(Title.id == payload.title_id))
     if title is None:
         raise validation_error('Invalid request.', {'field': 'title_id', 'reason': 'Title not found'})
@@ -79,6 +84,7 @@ def list_chat_sessions(
     episode_id: str | None = None,
     user_id: str | None = None,
     db: Session = Depends(get_db),
+    _: AuthUser = Depends(get_current_user),
 ) -> ChatSessionListResponse:
     stmt = select(ChatSession)
     if title_id:
@@ -94,7 +100,11 @@ def list_chat_sessions(
 
 
 @router.get('/sessions/{sessionId}', response_model=ChatSessionOut)
-def get_chat_session(sessionId: str, db: Session = Depends(get_db)) -> ChatSessionOut:
+def get_chat_session(
+    sessionId: str,
+    db: Session = Depends(get_db),
+    _: AuthUser = Depends(get_current_user),
+) -> ChatSessionOut:
     session = db.scalar(select(ChatSession).where(ChatSession.id == sessionId))
     if session is None:
         raise not_found()
@@ -106,6 +116,7 @@ def list_chat_messages(
     sessionId: str,
     limit: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
+    _: AuthUser = Depends(get_current_user),
 ) -> ChatMessageListResponse:
     session = db.scalar(select(ChatSession).where(ChatSession.id == sessionId))
     if session is None:
@@ -128,6 +139,7 @@ def create_chat_message(
     sessionId: str,
     payload: ChatMessageCreateRequest,
     db: Session = Depends(get_db),
+    _: AuthUser = Depends(get_current_user),
 ) -> ChatMessageOut:
     session = db.scalar(select(ChatSession).where(ChatSession.id == sessionId))
     if session is None:

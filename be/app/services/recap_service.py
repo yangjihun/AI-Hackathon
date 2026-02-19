@@ -15,6 +15,14 @@ from app.rag.validator import sanitize_evidences
 from app.utils.text import summarize_lines
 
 
+def _language_instruction(language: str | None) -> str:
+    if (language or '').lower().startswith('ko'):
+        return 'Korean'
+    if (language or '').lower().startswith('en'):
+        return 'English'
+    return 'Korean'
+
+
 def build_recap(db, req: RecapRequest) -> RecapResponse:
     warnings: list[WarningItem] = []
 
@@ -54,10 +62,15 @@ def build_recap(db, req: RecapRequest) -> RecapResponse:
 
     if llm.enabled and lines:
         system_prompt = load_prompt('recap_prompt.txt')
+        output_language = _language_instruction(req.language)
         context_text = '\n'.join(f'[{line.start_ms}] {line.speaker_text or "?"}: {line.text}' for line in lines)
         user_prompt = (
             f'title_id={req.title_id}\nepisode_id={req.episode_id}\ncurrent_time_ms={req.current_time_ms}\n'
-            f'preset={req.preset.value}\nmode={req.mode.value if req.mode else "GENERAL"}\ncontext:\n{context_text}'
+            f'language={req.language or "ko"}\n'
+            f'preset={req.preset.value}\nmode={req.mode.value if req.mode else "GENERAL"}\n'
+            f'Output requirement: All natural-language fields in JSON must be written in {output_language}. '
+            f'Do not mix languages.\n'
+            f'context:\n{context_text}'
         )
         result = llm.complete_json(system_prompt=system_prompt, user_prompt=user_prompt)
         if result:

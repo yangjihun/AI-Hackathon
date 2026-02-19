@@ -1,6 +1,6 @@
 ﻿from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -23,6 +23,14 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     app.include_router(api_router, prefix='/api')
+
+    @app.middleware('http')
+    async def enforce_utf8_json(request: Request, call_next):
+        response = await call_next(request)
+        content_type = response.headers.get('content-type', '')
+        if content_type.startswith('application/json') and 'charset=' not in content_type.lower():
+            response.headers['content-type'] = 'application/json; charset=utf-8'
+        return response
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(_, exc: RequestValidationError):
