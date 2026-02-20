@@ -167,11 +167,20 @@ def _get_or_create_chat_session(
     return session
 
 
-def _load_recent_chat_messages(db, *, session_id: str, limit: int) -> list[ChatMessage]:
+def _load_recent_chat_messages(
+    db,
+    *,
+    session_id: str,
+    limit: int,
+    current_time_ms: int,
+) -> list[ChatMessage]:
     items = list(
         db.scalars(
             select(ChatMessage)
-            .where(ChatMessage.session_id == session_id)
+            .where(
+                ChatMessage.session_id == session_id,
+                ChatMessage.current_time_ms <= current_time_ms,
+            )
             .order_by(ChatMessage.created_at.desc())
             .limit(max(1, limit))
         ).all()
@@ -601,6 +610,7 @@ def ask_question(
             db,
             session_id=session.id,
             limit=settings.chat_history_window,
+            current_time_ms=req.current_time_ms,
         )
         history_block = _render_history_block(history_messages)
 
