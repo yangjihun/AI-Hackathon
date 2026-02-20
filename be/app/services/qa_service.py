@@ -1,5 +1,7 @@
 ﻿from __future__ import annotations
 
+import re
+
 from sqlalchemy import delete, select
 
 from app.api.schemas import (
@@ -50,6 +52,65 @@ def _as_list(value) -> list:
     if isinstance(value, dict):
         return [value]
     return [value]
+
+
+_NOISE_LINE_RE = re.compile(r'^\s*(?:[A-Z]\s*[:\)]|INTENT\s*:)', re.IGNORECASE)
+_PERCENT_RE = re.compile(r'\(\s*\d{1,3}\s*%?\s*\)')
+_TOKEN_RE = re.compile(r"[a-zA-Z0-9\uAC00-\uD7A3]+")
+_STOPWORDS = {
+    '이', '그', '저', '것', '수', '좀', '더', '그리고', '근데', '그럼', '정말',
+    '은', '는', '이야', '가', '을', '를', '에', '의', '와', '과', '도', '로', '으로',
+    'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'to', 'of', 'in', 'on', 'and',
+}
+
+
+def _clean_text_line(text: str) -> str:
+    cleaned = (text or '').strip()
+    if not cleaned:
+        return ''
+    cleaned = _PERCENT_RE.sub('', cleaned).strip()
+    if _NOISE_LINE_RE.match(cleaned):
+        return ''
+    return cleaned
+
+
+def _clean_lines(values: list[str], *, limit: int) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for raw in values:
+        line = _clean_text_line(str(raw))
+        if not line:
+            continue
+        if line in seen:
+            continue
+        seen.add(line)
+        result.append(line)
+        if len(result) >= limit:
+            break
+    return result
+
+
+def _query_tokens(text: str) -> set[str]:
+    tokens = [t.lower() for t in _TOKEN_RE.findall(text or '')]
+    return {t for t in tokens if len(t) >= 2 and t not in _STOPWORDS}
+
+
+def _rerank_lines_for_question(lines: list, question: str, *, limit: int = 6) -> list:
+    if not lines:
+        return lines
+    q_tokens = _query_tokens(question)
+    if not q_tokens:
+        return lines[:limit]
+
+    def _score(line) -> tuple[int, int]:
+        source = f'{getattr(line, "speaker_text", "")} {getattr(line, "text", "")}'.lower()
+        line_tokens = _query_tokens(source)
+        overlap = len(q_tokens.intersection(line_tokens))
+        recency = -int(getattr(line, 'start_ms', 0))
+        return (overlap, recency)
+
+    ranked = sorted(lines, key=_score, reverse=True)
+    return ranked[:limit]
 
 
 def _language_instruction(language: str | None) -> str:
@@ -416,8 +477,7 @@ def _build_fallback_answer(lines, *, style: ResponseStyle | None) -> AnswerPaylo
             conclusion=default_conclusion,
             context=[default_context],
             interpretations=[
-                Interpretation(label='A', text='오해로 인한 갈등 가능성', confidence=0.35),
-                Interpretation(label='B', text='배경 사건이 아직 드러나지 않았을 가능성', confidence=0.28),
+                Interpretation(label='핵심', text='현재 구간에서 확보된 근거가 제한적입니다.', confidence=0.35),
             ],
             overall_confidence=0.3,
         )
@@ -429,13 +489,12 @@ def _build_fallback_answer(lines, *, style: ResponseStyle | None) -> AnswerPaylo
         conclusion = f'이 장면의 긴장은 {first.speaker_text or "인물"}의 최근 발언에서 비롯됩니다.'
     else:
         conclusion = f'핵심은 {first.speaker_text or "인물"}의 최근 발언이 갈등의 단서로 보인다는 점이야.'
-    context = [f'[{line.start_ms}] {line.text}' for line in lines[:3]]
+    context = [f'[{line.start_ms}] {line.text}' for line in lines[:2]]
     return AnswerPayload(
         conclusion=conclusion,
         context=context,
         interpretations=[
-            Interpretation(label='A', text='발언의 모순 때문에 의심이 커졌을 가능성', confidence=0.62),
-            Interpretation(label='B', text='의도적 회피가 오해를 만들었을 가능성', confidence=0.46),
+            Interpretation(label='핵심', text='최근 발언이 갈등의 직접 단서로 보입니다.', confidence=0.62),
         ],
         overall_confidence=0.61,
     )
@@ -559,6 +618,7 @@ def ask_question(db, req: QARequest, *, user_id: str | None = None) -> QARespons
             current_time_ms=req.current_time_ms,
             max_lines=6,
         )
+    lines = _rerank_lines_for_question(lines, req.question, limit=6)
 
     evidences = build_evidences_from_lines(lines, max_lines_per_evidence=2)
     evidences = sanitize_evidences(
@@ -584,6 +644,7 @@ def ask_question(db, req: QARequest, *, user_id: str | None = None) -> QARespons
             f'Output requirement: All natural-language fields in JSON must be written in {output_language}. '
             f'Do not mix languages.\n'
             f'Style requirement: {style_instruction}\n'
+            'Clarity requirement: give a direct answer first. Avoid A/B, percentages, and repetitive framing.\n'
             f'context:\n{context_text}'
         )
         result = llm.complete_json(system_prompt=system_prompt, user_prompt=user_prompt)
@@ -592,28 +653,39 @@ def ask_question(db, req: QARequest, *, user_id: str | None = None) -> QARespons
             parsed_interpretations: list[Interpretation] = []
             for idx, item in enumerate(raw_interpretations[:2]):
                 if isinstance(item, dict):
+                    text = _clean_text_line(str(item.get('text', '')))
+                    if not text:
+                        continue
                     parsed_interpretations.append(
                         Interpretation(
-                            label=str(item.get('label', 'A')),
-                            text=str(item.get('text', '해석 근거 부족')),
+                            label=str(item.get('label', '핵심'))[:20] or '핵심',
+                            text=text,
                             confidence=_to_confidence(item.get('confidence', 0.3)),
                         )
                     )
                 elif isinstance(item, str):
+                    text = _clean_text_line(item)
+                    if not text:
+                        continue
                     parsed_interpretations.append(
                         Interpretation(
-                            label='A' if idx == 0 else 'B',
-                            text=item,
+                            label='핵심' if idx == 0 else '보조',
+                            text=text,
                             confidence=0.3,
                         )
                     )
 
+            cleaned_conclusion = _clean_text_line(str(result.get('conclusion', '')).strip())
+            cleaned_context = _clean_lines(
+                [str(item) for item in _as_list(result.get('context', []))],
+                limit=2,
+            )
             answer = AnswerPayload(
-                conclusion=str(result.get('conclusion', '')).strip() or '현재 시점 기준으로는 단정이 어려워.',
-                context=[str(item) for item in _as_list(result.get('context', []))][:4]
+                conclusion=cleaned_conclusion or '현재 시점 기준으로는 단정이 어려워.',
+                context=cleaned_context
                 or ['근거를 바탕으로 제한적으로 답변합니다.'],
                 interpretations=parsed_interpretations
-                or [Interpretation(label='A', text='해석 근거 부족', confidence=0.3)],
+                or [Interpretation(label='핵심', text='근거 기반으로만 해석했습니다.', confidence=0.45)],
                 overall_confidence=_to_confidence(result.get('overall_confidence', 0.5), default=0.5),
             )
 
