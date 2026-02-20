@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     openai_model: str = Field(default='gpt-4o-mini')
     use_openai: bool = Field(default=False)
     cors_allowed_origins: str = Field(default='http://localhost:5173,http://localhost:3000')
+    admin_email: str | None = Field(default=None)
+    cloudinary_cloud_name: str | None = Field(default=None)
+    cloudinary_api_key: str | None = Field(default=None)
+    cloudinary_api_secret: str | None = Field(default=None)
+    cloudinary_folder: str = Field(default='netplus')
 
     chunk_size_lines: int = Field(default=6)
     retrieval_top_k: int = Field(default=8)

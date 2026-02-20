@@ -6,6 +6,7 @@ import type {
   QAResponse,
   RecapRequest,
   RecapResponse,
+  SubtitleLine,
   Title,
   UUID,
 } from "../types/netplus";
@@ -19,6 +20,56 @@ interface PaginatedTitlesResponse {
 interface EpisodesResponse {
   title_id: UUID;
   episodes: Episode[];
+}
+
+interface EpisodeSubtitlesResponse {
+  episode_id: UUID;
+  items: SubtitleLine[];
+}
+
+interface TitleCreatePayload {
+  name: string;
+  description?: string;
+}
+
+interface EpisodeCreatePayload {
+  title_id: UUID;
+  season: number;
+  episode_number: number;
+  name?: string;
+  duration_ms: number;
+  video_url?: string;
+}
+
+interface SubtitleLineCreatePayload {
+  episode_id: UUID;
+  start_ms: number;
+  end_ms: number;
+  text: string;
+  speaker_text?: string;
+}
+
+interface SubtitleLineBulkPayload {
+  lines: SubtitleLineCreatePayload[];
+}
+
+interface IngestSubtitleLinesResponse {
+  inserted_count: number;
+  queued_embedding_jobs: number;
+}
+
+interface VideoUploadSignatureRequest {
+  episode_id: UUID;
+  filename: string;
+}
+
+interface VideoUploadSignatureResponse {
+  upload_url: string;
+  api_key: string;
+  timestamp: string;
+  folder: string;
+  public_id: string;
+  signature: string;
 }
 
 const USE_MOCK_DATA =
@@ -311,4 +362,60 @@ export async function getCharacterCard(params: {
       warnings: [],
     }),
   );
+}
+
+export async function listEpisodeSubtitles(episodeId: UUID): Promise<SubtitleLine[]> {
+  if (USE_MOCK_DATA) {
+    return [];
+  }
+  const response = await apiRequest<EpisodeSubtitlesResponse>(`/api/episodes/${episodeId}/subtitles`);
+  return response.items;
+}
+
+export async function ingestTitle(payload: TitleCreatePayload): Promise<Title> {
+  return apiRequest<Title>("/api/ingest/titles", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function ingestEpisode(payload: EpisodeCreatePayload): Promise<Episode> {
+  return apiRequest<Episode>("/api/ingest/episodes", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function ingestSubtitleLinesBulk(
+  payload: SubtitleLineBulkPayload,
+): Promise<IngestSubtitleLinesResponse> {
+  return apiRequest<IngestSubtitleLinesResponse>("/api/ingest/subtitle-lines:bulk", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function issueVideoUploadSignature(
+  payload: VideoUploadSignatureRequest,
+): Promise<VideoUploadSignatureResponse> {
+  return apiRequest<VideoUploadSignatureResponse>("/api/ingest/video-upload-signature", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateEpisodeVideoUrl(params: {
+  episode_id: UUID;
+  video_url: string;
+}): Promise<Episode> {
+  return apiRequest<Episode>(`/api/ingest/episodes/${params.episode_id}/video-url`, {
+    method: "PATCH",
+    body: JSON.stringify({ video_url: params.video_url }),
+  });
+}
+
+export async function deleteEpisodeVideoUrl(episodeId: UUID): Promise<Episode> {
+  return apiRequest<Episode>(`/api/ingest/episodes/${episodeId}/video-url`, {
+    method: "DELETE",
+  });
 }

@@ -151,6 +151,22 @@ body {
   position: relative;
 }
 
+.watch-video-shell {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+}
+
+.watch-video-element {
+  width: 100%;
+  height: 100%;
+  max-height: calc(100% - 82px);
+  object-fit: contain;
+  background: #000;
+}
+
 .player-content {
   text-align: center;
   color: var(--muted);
@@ -171,6 +187,15 @@ body {
   width: 100%;
   max-width: 600px;
   padding: 0 24px;
+}
+
+.player-current-subtitle {
+  margin: 12px auto 0;
+  max-width: 90%;
+  text-align: center;
+  line-height: 1.5;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.75);
 }
 
 .player-seekbar {
@@ -217,6 +242,55 @@ body {
 
 .watch-recommendations {
   margin-top: 32px;
+}
+
+.watch-subtitles-panel {
+  margin-top: 28px;
+}
+
+.watch-subtitle-empty {
+  color: var(--muted);
+}
+
+.watch-subtitle-list {
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.watch-subtitle-line {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.watch-subtitle-line:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.watch-subtitle-line.active {
+  border-color: var(--red);
+  background: rgba(229, 9, 20, 0.14);
+}
+
+.watch-subtitle-time {
+  min-width: 62px;
+  color: var(--gold);
+  font-size: 0.85rem;
+}
+
+.watch-subtitle-text {
+  flex: 1;
+  line-height: 1.45;
 }
 
 .watch-section-title {
@@ -1634,6 +1708,141 @@ body {
   color: var(--text);
   z-index: 1200;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+/* ===== Admin Page ===== */
+.admin-page {
+  min-height: calc(100vh - 80px);
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 20px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.admin-card {
+  background: var(--bg-soft);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.admin-title {
+  margin: 0 0 8px;
+  font-size: 1.6rem;
+}
+
+.admin-subtitle {
+  margin: 0;
+  color: var(--muted);
+}
+
+.admin-message {
+  margin-top: 10px;
+  color: #7be495;
+}
+
+.admin-error {
+  margin-top: 10px;
+  color: var(--red-soft);
+}
+
+.admin-help {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.admin-form input,
+.admin-form select,
+.admin-form textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.admin-form input:focus,
+.admin-form select:focus,
+.admin-form textarea:focus {
+  outline: none;
+  border-color: var(--red);
+}
+
+.admin-form button {
+  width: fit-content;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--red);
+  background: var(--red);
+  color: #fff;
+  cursor: pointer;
+}
+
+.admin-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-episode-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-episode-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.admin-episode-copy {
+  min-width: 0;
+}
+
+.admin-episode-url {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 540px;
+}
+
+.admin-danger-btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #a31621;
+  background: rgba(163, 22, 33, 0.25);
+  color: #ffb3b8;
+  cursor: pointer;
+}
+
+.admin-danger-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* ===== Plan Modal ===== */

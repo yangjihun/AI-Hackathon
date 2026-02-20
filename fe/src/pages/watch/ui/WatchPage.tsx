@@ -1,14 +1,14 @@
-import { useEffect, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
-import type { UUID, Title, Episode } from "../../../shared/types/netplus";
-import { listTitles, listEpisodes } from "../../../shared/api/netplus";
-import { NetPlusSidebar } from "../../../widgets/netplus-sidebar/ui/NetPlusSidebar";
-import { msToClock } from "../../../shared/lib/utils";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { listEpisodeSubtitles, listEpisodes, listTitles } from "../../../shared/api/netplus";
 import {
   getCurrentPlan,
   getFreeSelectedTitleId,
   lockFreeTitleSelection,
 } from "../../../shared/lib/subscription";
+import { msToClock } from "../../../shared/lib/utils";
+import type { Episode, SubtitleLine, Title, UUID } from "../../../shared/types/netplus";
+import { NetPlusSidebar } from "../../../widgets/netplus-sidebar/ui/NetPlusSidebar";
 
 export function WatchPage() {
   const [searchParams] = useSearchParams();
@@ -20,44 +20,43 @@ export function WatchPage() {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [selectedTitleId, setSelectedTitleId] = useState<UUID>("");
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<UUID>("");
-  const [currentTimeMs, setCurrentTimeMs] = useState(615_000);
+  const [currentTimeMs, setCurrentTimeMs] = useState(0);
+  const [videoDurationMs, setVideoDurationMs] = useState(0);
+  const [subtitleLines, setSubtitleLines] = useState<SubtitleLine[]>([]);
+  const [subtitleError, setSubtitleError] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [watchLimitMessage, setWatchLimitMessage] = useState("");
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
     async function loadTitles() {
       const data = await listTitles();
       setTitles(data);
-      if (data.length > 0) {
-        const requestedId =
-          titleIdParam && data.some((title) => title.id === titleIdParam)
-            ? titleIdParam
+      if (data.length === 0) return;
+
+      const requestedId =
+        titleIdParam && data.some((title) => title.id === titleIdParam) ? titleIdParam : data[0].id;
+
+      if (getCurrentPlan() === "free") {
+        const alreadySelected = getFreeSelectedTitleId();
+        if (alreadySelected && requestedId !== alreadySelected) {
+          const targetId = data.some((title) => title.id === alreadySelected)
+            ? alreadySelected
             : data[0].id;
-
-        if (getCurrentPlan() === "free") {
-          const alreadySelected = getFreeSelectedTitleId();
-          if (alreadySelected && requestedId !== alreadySelected) {
-            const targetId = data.some((title) => title.id === alreadySelected)
-              ? alreadySelected
-              : data[0].id;
-            setWatchLimitMessage("무료 플랜은 선택한 1개 작품만 시청할 수 있어요.");
-            setSelectedTitleId(targetId);
-            navigate(`/watch?titleId=${targetId}`, { replace: true });
-            return;
-          }
-
-          const selection = lockFreeTitleSelection(requestedId);
-          if (selection.newlySelected) {
-            setWatchLimitMessage("무료 플랜 작품이 선택되어 고정되었습니다.");
-          } else {
-            setWatchLimitMessage("");
-          }
+          setWatchLimitMessage("Free plan can watch only one selected title.");
+          setSelectedTitleId(targetId);
+          navigate(`/watch?titleId=${targetId}`, { replace: true });
+          return;
         }
 
-        setSelectedTitleId(requestedId);
+        const selection = lockFreeTitleSelection(requestedId);
+        setWatchLimitMessage(selection.newlySelected ? "Free-plan title has been locked." : "");
       }
+
+      setSelectedTitleId(requestedId);
     }
-    loadTitles();
+    void loadTitles();
   }, [titleIdParam, navigate]);
 
   useEffect(() => {
@@ -65,51 +64,155 @@ export function WatchPage() {
       if (!selectedTitleId) return;
       const data = await listEpisodes(selectedTitleId);
       setEpisodes(data);
-      if (data.length > 0) {
-        const targetId = episodeIdParam || data[0].id;
-        setSelectedEpisodeId(targetId);
+      if (data.length === 0) {
+        setSelectedEpisodeId("");
+        return;
       }
+
+      const targetId =
+        episodeIdParam && data.some((episode) => episode.id === episodeIdParam)
+          ? episodeIdParam
+          : data[0].id;
+      setSelectedEpisodeId(targetId);
     }
-    loadEpisodes();
+    void loadEpisodes();
   }, [selectedTitleId, episodeIdParam]);
 
+  useEffect(() => {
+    setCurrentTimeMs(0);
+    setVideoDurationMs(0);
+  }, [selectedEpisodeId]);
+
+  useEffect(() => {
+    async function loadSubtitles() {
+      if (!selectedEpisodeId) {
+        setSubtitleLines([]);
+        setSubtitleError("");
+        return;
+      }
+      try {
+        const lines = await listEpisodeSubtitles(selectedEpisodeId);
+        setSubtitleLines(lines);
+        setSubtitleError("");
+      } catch (error) {
+        console.error("Failed to load subtitles:", error);
+        setSubtitleLines([]);
+        setSubtitleError("Failed to load subtitles. Check backend route/env.");
+      }
+    }
+    void loadSubtitles();
+  }, [selectedEpisodeId]);
+
   const selectedEpisode = episodes.find((ep) => ep.id === selectedEpisodeId);
+  const currentSubtitle = subtitleLines.find(
+    (line) => line.start_ms <= currentTimeMs && currentTimeMs <= line.end_ms,
+  );
+  const nearbySubtitles = subtitleLines
+    .filter((line) => line.end_ms >= Math.max(0, currentTimeMs - 10_000) && line.start_ms <= currentTimeMs + 20_000)
+    .slice(0, 30);
+  const hasVideoSource = Boolean(selectedEpisode?.video_url);
+  const effectiveDurationMs =
+    (hasVideoSource ? videoDurationMs : 0) || selectedEpisode?.duration_ms || 3_600_000;
+
+  const handleSeek = (nextMs: number) => {
+    const safeMs = Math.max(0, Math.min(nextMs, effectiveDurationMs));
+    setCurrentTimeMs(safeMs);
+    if (hasVideoSource && videoRef.current) {
+      videoRef.current.currentTime = safeMs / 1000;
+    }
+  };
 
   return (
     <div className="watch-page">
       <div className="watch-back-section">
         <button className="watch-back-btn" onClick={() => navigate("/browse")}>
-          ← 뒤로 가기
+          Back to Browse
         </button>
       </div>
-      <div className={`watch-main ${isSidebarOpen ? "sidebar-open" : ""}`} data-sidebar-open={isSidebarOpen}>
+
+      <div
+        className={`watch-main ${isSidebarOpen ? "sidebar-open" : ""}`}
+        data-sidebar-open={isSidebarOpen}
+      >
         <div className="watch-player-section">
-          {watchLimitMessage && (
-            <div className="watch-limit-banner">{watchLimitMessage}</div>
-          )}
+          {watchLimitMessage && <div className="watch-limit-banner">{watchLimitMessage}</div>}
+
           <div className="watch-player-container">
-            <div className="watch-player-placeholder">
-              <div className="player-content">
-                <div className="player-title">
-                  {selectedEpisode
-                    ? `S${selectedEpisode.season}E${selectedEpisode.episode_number} ${selectedEpisode.name}`
-                    : "비디오 플레이어"}
-                </div>
-                <div className="player-time">
-                  {msToClock(currentTimeMs)} / {selectedEpisode ? msToClock(selectedEpisode.duration_ms) : "00:00"}
-                </div>
-                <div className="player-controls">
-                  <input
-                    type="range"
-                    min={0}
-                    max={selectedEpisode?.duration_ms || 3_600_000}
-                    value={currentTimeMs}
-                    onChange={(e) => setCurrentTimeMs(Number(e.target.value))}
-                    className="player-seekbar"
-                  />
+            {hasVideoSource ? (
+              <div className="watch-video-shell">
+                <video
+                  ref={videoRef}
+                  key={selectedEpisodeId}
+                  src={selectedEpisode?.video_url ?? undefined}
+                  controls
+                  className="watch-video-element"
+                  onLoadedMetadata={(e) => {
+                    const duration = Number(e.currentTarget.duration);
+                    if (Number.isFinite(duration) && !Number.isNaN(duration)) {
+                      setVideoDurationMs(Math.round(duration * 1000));
+                    }
+                  }}
+                  onTimeUpdate={(e) => {
+                    setCurrentTimeMs(Math.round(e.currentTarget.currentTime * 1000));
+                  }}
+                />
+                <div className="player-content">
+                  <div className="player-title">
+                    {selectedEpisode
+                      ? `S${selectedEpisode.season}E${selectedEpisode.episode_number} ${selectedEpisode.name}`
+                      : "Video Player"}
+                  </div>
+                  <div className="player-time">
+                    {msToClock(currentTimeMs)} / {msToClock(effectiveDurationMs)}
+                  </div>
+                  {currentSubtitle && (
+                    <div className="player-current-subtitle">
+                      {currentSubtitle.speaker_text ? `${currentSubtitle.speaker_text}: ` : ""}
+                      {currentSubtitle.text}
+                    </div>
+                  )}
+                  <div className="player-controls">
+                    <input
+                      type="range"
+                      min={0}
+                      max={effectiveDurationMs}
+                      value={Math.min(currentTimeMs, effectiveDurationMs)}
+                      onChange={(e) => handleSeek(Number(e.target.value))}
+                      className="player-seekbar"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="watch-player-placeholder">
+                <div className="player-content">
+                  <div className="player-title">
+                    {selectedEpisode
+                      ? `S${selectedEpisode.season}E${selectedEpisode.episode_number} ${selectedEpisode.name}`
+                      : "Video Player"}
+                  </div>
+                  <div className="player-time">
+                    {msToClock(currentTimeMs)} / {msToClock(effectiveDurationMs)}
+                  </div>
+                  {currentSubtitle && (
+                    <div className="player-current-subtitle">
+                      {currentSubtitle.speaker_text ? `${currentSubtitle.speaker_text}: ` : ""}
+                      {currentSubtitle.text}
+                    </div>
+                  )}
+                  <div className="player-controls">
+                    <input
+                      type="range"
+                      min={0}
+                      max={effectiveDurationMs}
+                      value={Math.min(currentTimeMs, effectiveDurationMs)}
+                      onChange={(e) => handleSeek(Number(e.target.value))}
+                      className="player-seekbar"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="watch-info">
@@ -121,14 +224,10 @@ export function WatchPage() {
                   if (getCurrentPlan() === "free") {
                     const selection = lockFreeTitleSelection(nextTitleId);
                     if (!selection.allowed) {
-                      setWatchLimitMessage("무료 플랜은 선택한 1개 작품만 시청할 수 있어요.");
+                      setWatchLimitMessage("Free plan can watch only one selected title.");
                       return;
                     }
-                    if (selection.newlySelected) {
-                      setWatchLimitMessage("무료 플랜 작품이 선택되어 고정되었습니다.");
-                    } else {
-                      setWatchLimitMessage("");
-                    }
+                    setWatchLimitMessage(selection.newlySelected ? "Free-plan title has been locked." : "");
                   }
                   setSelectedTitleId(nextTitleId);
                 }}
@@ -140,6 +239,7 @@ export function WatchPage() {
                   </option>
                 ))}
               </select>
+
               <select
                 value={selectedEpisodeId}
                 onChange={(e) => setSelectedEpisodeId(e.target.value)}
@@ -155,7 +255,7 @@ export function WatchPage() {
           </div>
 
           <div className="watch-recommendations">
-            <h2 className="watch-section-title">다음에 보기</h2>
+            <h2 className="watch-section-title">Up Next</h2>
             <div className="watch-card-row">
               {[1, 2, 3, 4].map((i) => (
                 <div key={i} className="watch-card-skeleton">
@@ -163,6 +263,35 @@ export function WatchPage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="watch-subtitles-panel">
+            <h2 className="watch-section-title">Subtitles</h2>
+            {subtitleLines.length === 0 ? (
+              <p className="watch-subtitle-empty">
+                {subtitleError || "No subtitles for this episode."}
+              </p>
+            ) : (
+              <div className="watch-subtitle-list">
+                {nearbySubtitles.map((line) => {
+                  const isActive = line.id === currentSubtitle?.id;
+                  return (
+                    <button
+                      key={line.id}
+                      type="button"
+                      className={`watch-subtitle-line ${isActive ? "active" : ""}`}
+                      onClick={() => handleSeek(line.start_ms)}
+                    >
+                      <span className="watch-subtitle-time">{msToClock(line.start_ms)}</span>
+                      <span className="watch-subtitle-text">
+                        {line.speaker_text ? `${line.speaker_text}: ` : ""}
+                        {line.text}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -184,4 +313,3 @@ export function WatchPage() {
     </div>
   );
 }
-

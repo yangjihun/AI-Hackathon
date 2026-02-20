@@ -30,6 +30,7 @@ class Episode(BaseModel):
     episode_number: int
     name: str | None = None
     duration_ms: int | None = None
+    video_url: str | None = None
 
 
 class PaginatedTitles(BaseModel):
@@ -271,6 +272,7 @@ class AuthUser(BaseModel):
     id: str
     name: str
     email: str
+    is_admin: bool = False
     created_at: str | None = None
 
 
@@ -315,6 +317,25 @@ class EpisodeCreateRequest(BaseModel):
     episode_number: int = Field(ge=1)
     name: str | None = None
     duration_ms: int = Field(ge=1)
+    video_url: str | None = None
+
+
+class EpisodeVideoUpdateRequest(BaseModel):
+    video_url: str = Field(min_length=1)
+
+
+class VideoUploadSignatureRequest(BaseModel):
+    episode_id: str
+    filename: str = Field(min_length=1, max_length=255)
+
+
+class VideoUploadSignatureResponse(BaseModel):
+    upload_url: str
+    api_key: str
+    timestamp: str
+    folder: str
+    public_id: str
+    signature: str
 
 
 class SubtitleLineCreate(BaseModel):

@@ -4,9 +4,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.schemas import AuthResponse, AuthUser, LoginRequest, SignupRequest
+from app.core.config import get_settings
 from app.db.models import User
 from app.utils.security import hash_password, verify_password
 from app.utils.token import create_access_token, decode_access_token
+
+
+def is_admin_email(email: str) -> bool:
+    admin_email = (get_settings().admin_email or '').strip().lower()
+    return bool(admin_email and email.strip().lower() == admin_email)
 
 
 def get_user_by_email(db: Session, email: str) -> User | None:
@@ -34,6 +40,7 @@ def signup(db: Session, payload: SignupRequest) -> AuthResponse:
             id=user.id,
             name=user.name,
             email=user.email,
+            is_admin=is_admin_email(user.email),
             created_at=user.created_at.isoformat() if user.created_at else None,
         ),
     )
@@ -53,6 +60,7 @@ def login(db: Session, payload: LoginRequest) -> AuthResponse | None:
             id=user.id,
             name=user.name,
             email=user.email,
+            is_admin=is_admin_email(user.email),
             created_at=user.created_at.isoformat() if user.created_at else None,
         ),
     )
@@ -74,6 +82,7 @@ def resolve_user_from_bearer(db: Session, authorization: str | None) -> AuthUser
         id=user.id,
         name=user.name,
         email=user.email,
+        is_admin=is_admin_email(user.email),
         created_at=user.created_at.isoformat() if user.created_at else None,
     )
 

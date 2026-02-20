@@ -25,3 +25,11 @@ def get_current_user(
     if user is None:
         raise unauthorized('Invalid or expired token.')
     return user
+
+
+def get_admin_user(
+    user: AuthUser = Depends(get_current_user),
+) -> AuthUser:
+    if not user.is_admin:
+        raise unauthorized('Admin access required.')
+    return user

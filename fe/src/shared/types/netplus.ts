@@ -14,6 +14,7 @@ export type Episode = {
   episode_number: number;
   name: string;
   duration_ms: number;
+  video_url?: string | null;
 };
 
 export type Character = {
@@ -29,6 +30,14 @@ export type EvidenceLine = {
   start_ms: number;
   end_ms: number;
   speaker_text?: string;
+  text: string;
+};
+
+export type SubtitleLine = {
+  id: UUID;
+  start_ms: number;
+  end_ms: number;
+  speaker_text?: string | null;
   text: string;
 };
 
@@ -167,6 +176,7 @@ export type AuthUser = {
   id: UUID;
   name: string;
   email: string;
+  is_admin?: boolean;
   created_at?: string | null;
 };
 

@@ -43,6 +43,11 @@ export function Header() {
     navigate("/mypage");
   };
 
+  const handleAdminPage = () => {
+    setShowMenu(false);
+    navigate("/admin");
+  };
+
   const handlePlanChange = (planId: PlanType) => {
     setCurrentPlan(planId); // 상태 업데이트
     savePlan(planId); // localStorage에 저장
@@ -90,6 +95,14 @@ export function Header() {
                 >
                   My Page
                 </button>
+                {user.is_admin && (
+                  <button
+                    className="header-dropdown-item header-dropdown-button"
+                    onClick={handleAdminPage}
+                  >
+                    Admin Page
+                  </button>
+                )}
                 <button
                   className="header-dropdown-item header-dropdown-button"
                   onClick={handleLogout}
