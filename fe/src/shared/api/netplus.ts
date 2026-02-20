@@ -52,6 +52,7 @@ interface SubtitleLineCreatePayload {
 
 interface SubtitleLineBulkPayload {
   lines: SubtitleLineCreatePayload[];
+  replace_existing?: boolean;
 }
 
 interface IngestSubtitleLinesResponse {
@@ -407,6 +408,12 @@ export async function ingestSubtitleLinesBulk(
   return apiRequest<IngestSubtitleLinesResponse>("/api/ingest/subtitle-lines:bulk", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteEpisodeSubtitleLines(episodeId: UUID): Promise<IngestSubtitleLinesResponse> {
+  return apiRequest<IngestSubtitleLinesResponse>(`/api/ingest/episodes/${episodeId}/subtitle-lines`, {
+    method: "DELETE",
   });
 }
 

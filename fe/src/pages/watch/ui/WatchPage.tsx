@@ -107,9 +107,6 @@ export function WatchPage() {
   const currentSubtitle = subtitleLines.find(
     (line) => line.start_ms <= currentTimeMs && currentTimeMs <= line.end_ms,
   );
-  const nearbySubtitles = subtitleLines
-    .filter((line) => line.end_ms >= Math.max(0, currentTimeMs - 10_000) && line.start_ms <= currentTimeMs + 20_000)
-    .slice(0, 30);
   const hasVideoSource = Boolean(selectedEpisode?.video_url);
   const effectiveDurationMs =
     (hasVideoSource ? videoDurationMs : 0) || selectedEpisode?.duration_ms || 3_600_000;
@@ -140,46 +137,40 @@ export function WatchPage() {
           <div className="watch-player-container">
             {hasVideoSource ? (
               <div className="watch-video-shell">
-                <video
-                  ref={videoRef}
-                  key={selectedEpisodeId}
-                  src={selectedEpisode?.video_url ?? undefined}
-                  controls
-                  className="watch-video-element"
-                  onLoadedMetadata={(e) => {
-                    const duration = Number(e.currentTarget.duration);
-                    if (Number.isFinite(duration) && !Number.isNaN(duration)) {
-                      setVideoDurationMs(Math.round(duration * 1000));
-                    }
-                  }}
-                  onTimeUpdate={(e) => {
-                    setCurrentTimeMs(Math.round(e.currentTarget.currentTime * 1000));
-                  }}
-                />
-                <div className="player-content">
-                  <div className="player-title">
-                    {selectedEpisode
-                      ? `S${selectedEpisode.season}E${selectedEpisode.episode_number} ${selectedEpisode.name}`
-                      : "Video Player"}
-                  </div>
-                  <div className="player-time">
-                    {msToClock(currentTimeMs)} / {msToClock(effectiveDurationMs)}
-                  </div>
+                <div className="player-title">
+                  {selectedEpisode
+                    ? `S${selectedEpisode.season}E${selectedEpisode.episode_number} ${selectedEpisode.name}`
+                    : "Video Player"}
+                </div>
+                <div className="watch-video-frame">
+                  <video
+                    ref={videoRef}
+                    key={selectedEpisodeId}
+                    src={selectedEpisode?.video_url ?? undefined}
+                    controls
+                    className="watch-video-element"
+                    onLoadedMetadata={(e) => {
+                      const duration = Number(e.currentTarget.duration);
+                      if (Number.isFinite(duration) && !Number.isNaN(duration)) {
+                        setVideoDurationMs(Math.round(duration * 1000));
+                      }
+                    }}
+                    onTimeUpdate={(e) => {
+                      setCurrentTimeMs(Math.round(e.currentTarget.currentTime * 1000));
+                    }}
+                  />
                   {currentSubtitle && (
-                    <div className="player-current-subtitle">
-                      {currentSubtitle.speaker_text ? `${currentSubtitle.speaker_text}: ` : ""}
-                      {currentSubtitle.text}
+                    <div className="watch-video-subtitle-overlay">
+                      <div className="watch-video-subtitle-text">
+                        {currentSubtitle.speaker_text ? `${currentSubtitle.speaker_text}: ` : ""}
+                        {currentSubtitle.text}
+                      </div>
                     </div>
                   )}
-                  <div className="player-controls">
-                    <input
-                      type="range"
-                      min={0}
-                      max={effectiveDurationMs}
-                      value={Math.min(currentTimeMs, effectiveDurationMs)}
-                      onChange={(e) => handleSeek(Number(e.target.value))}
-                      className="player-seekbar"
-                    />
+                </div>
+                <div className="player-content">
+                  <div className="player-time">
+                    {msToClock(currentTimeMs)} / {msToClock(effectiveDurationMs)}
                   </div>
                 </div>
               </div>
@@ -254,17 +245,6 @@ export function WatchPage() {
             </div>
           </div>
 
-          <div className="watch-recommendations">
-            <h2 className="watch-section-title">Up Next</h2>
-            <div className="watch-card-row">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="watch-card-skeleton">
-                  <div className="card-placeholder" />
-                </div>
-              ))}
-            </div>
-          </div>
-
           <div className="watch-subtitles-panel">
             <h2 className="watch-section-title">Subtitles</h2>
             {subtitleLines.length === 0 ? (
@@ -273,7 +253,7 @@ export function WatchPage() {
               </p>
             ) : (
               <div className="watch-subtitle-list">
-                {nearbySubtitles.map((line) => {
+                {subtitleLines.map((line) => {
                   const isActive = line.id === currentSubtitle?.id;
                   return (
                     <button
@@ -292,6 +272,17 @@ export function WatchPage() {
                 })}
               </div>
             )}
+          </div>
+          
+          <div className="watch-recommendations">
+            <h2 className="watch-section-title">Up Next</h2>
+            <div className="watch-card-row">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="watch-card-skeleton">
+                  <div className="card-placeholder" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 

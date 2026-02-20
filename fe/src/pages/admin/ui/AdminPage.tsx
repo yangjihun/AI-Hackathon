@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { Episode, Title, UUID } from "../../../shared/types/netplus";
 import {
   deleteTitleThumbnailUrl,
+  deleteEpisodeSubtitleLines,
   ingestEpisode,
   ingestSubtitleLinesBulk,
   ingestTitle,
@@ -449,15 +450,31 @@ export function AdminPage() {
     setLoading(true);
     try {
       const response = await ingestSubtitleLinesBulk({
+        replace_existing: true,
         lines: parsed.lines.map((line) => ({
           episode_id: selectedEpisodeId,
           ...line,
         })),
       });
-      setMessage(`Subtitles uploaded: ${response.inserted_count} lines`);
+      setMessage(`Subtitles uploaded (replaced): ${response.inserted_count} lines`);
     } catch (requestError) {
       console.error(requestError);
       setError("Failed to upload subtitles.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteSubtitles = async () => {
+    if (!selectedEpisodeId || loading) return;
+    resetNotice();
+    setLoading(true);
+    try {
+      const response = await deleteEpisodeSubtitleLines(selectedEpisodeId);
+      setMessage(`All subtitles removed: ${response.inserted_count} lines`);
+    } catch (requestError) {
+      console.error(requestError);
+      setError("Failed to delete subtitles.");
     } finally {
       setLoading(false);
     }
@@ -731,6 +748,8 @@ export function AdminPage() {
       <section className="admin-card">
         <h2>Upload Subtitles</h2>
         <p className="admin-help">
+          Upload mode is replace-by-default (old subtitles are removed first).
+          <br />
           Format A: <code>start|end|speaker|text</code> or <code>start|end|text</code>
           <br />
           Format B: <code>(time) speaker: text</code> or <code>(time) text</code>
@@ -763,6 +782,14 @@ export function AdminPage() {
           />
           <button type="submit" disabled={loading || !selectedEpisodeId}>
             Upload Subtitles
+          </button>
+          <button
+            type="button"
+            className="admin-danger-btn"
+            onClick={handleDeleteSubtitles}
+            disabled={loading || !selectedEpisodeId}
+          >
+            Delete All Subtitles in Episode
           </button>
         </form>
       </section>

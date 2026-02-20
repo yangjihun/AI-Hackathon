@@ -128,22 +128,6 @@ export function CompanionChatPanel({
       )}
       {error && <div className="ai-trial-error">{error}</div>}
 
-      <div className="chat-style-picker">
-        <label htmlFor="chat-style-select">Style</label>
-        <select
-          id="chat-style-select"
-          value={responseStyle}
-          onChange={(e) => handleStyleChange(e.target.value)}
-          disabled={loading}
-        >
-          {(["FRIEND", "ASSISTANT", "CRITIC"] as ResponseStyle[]).map((style) => (
-            <option key={style} value={style}>
-              {STYLE_LABELS[style]}
-            </option>
-          ))}
-        </select>
-      </div>
-
       <div className="preset-buttons">
         <Button variant="ghost" size="sm" onClick={() => handlePreset("recap")}>
           1분 요약
